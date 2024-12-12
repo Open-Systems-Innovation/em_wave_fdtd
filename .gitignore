@@ -1,1 +1,3 @@
 figures/
+.direnv/
+.envrc
