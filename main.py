@@ -15,14 +15,14 @@ mu = np.pi*4e-7             # [H/m] vacuum permeability
 epsilon = 1 / (mu * c**2)   # [F/m]
 
 # wave source parameters
-frequency = 5e9 # [Hz]
+frequency = 5e9  # [Hz]
 amplitude = 1.4*1450            # [?]
 wavelength = c / frequency  # [m]
-ps1 = 50  # point source location
+ps1 = 4  # point source location
 
 # interior grid parameters (not PML)
-domain_nx = 100                     # number of points in x direction
-domain_ny = 100                     # number of points in the y direction
+domain_nx = 3                     # number of points in x direction
+domain_ny = 3                     # number of points in the y direction
 size_x = 0.5                 # total domin size in x direction [m]
 size_y = 0.5                 # total domin size in x direction [m]
 dx = size_x / domain_nx             # grid spacing in x direction [m]
@@ -40,12 +40,6 @@ nxm1 = nx - 1
 nym1 = ny - 1
 nxp1 = nx + 1
 nyp1 = ny + 1
-
-# boundaries of the non-pml region
-pis = pml_thickness         # PML i index start
-pie = nxm1 - pml_thickness  # PML i index end
-pjs = pml_thickness         # PML j index start
-pje = nym1 - pml_thickness  # PML j index end
 
 # time stepping parameters
 courant_factor = 0.9
@@ -81,9 +75,6 @@ mu_ry = np.ones((nx, nyp1))
 sigma_ez = np.zeros((nxp1, nyp1))
 sigma_mx = np.zeros((nxp1, ny))
 sigma_my = np.zeros((nx, nyp1))
-
-# Initialize Sources
-
 
 # Create update coefficients
 # for updating Ez
@@ -137,8 +128,8 @@ for i in range(pml_thickness):
     sigma_pey_yn[:, i] = sigma_max * rho_e[i] ** pml_order
     sigma_pmy_yn[:, i] = (mu / epsilon) * sigma_max * rho_m[i] ** pml_order
 
-rho_e = (np.arange(0, pml_thickness) - 0.75) / pml_thickness
-rho_m = (np.arange(0, pml_thickness) - 0.25) / pml_thickness
+rho_e = (np.arange(1, pml_thickness+1) - 0.75) / pml_thickness
+rho_m = (np.arange(1, pml_thickness+1) - 0.25) / pml_thickness
 for i in range(pml_thickness):
     # calcualte the actual values of sigma_p
     # for xp
@@ -148,44 +139,37 @@ for i in range(pml_thickness):
     sigma_pey_yp[:, i] = sigma_max * rho_e[i] ** pml_order
     sigma_pmy_yp[:, i] = (mu / epsilon) * sigma_max * rho_m[i] ** pml_order
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+breakpoint()
 # Update coefficients for PML layer
+# Coefficients updating Hx
+Chxh_yn = (2 * mu - dt * sigma_pmy_yn) / (2 * mu + dt * sigma_pmy_yn)
+Chxez_yn = -(2 * dt / dy) / (2 * mu + dt * sigma_pmy_yn)
+Chxh_yp = (2 * mu - dt * sigma_pmy_yp) / (2 * mu + dt * sigma_pmy_yp)
+Chxez_yp = -(2 * dt / dy) / (2 * mu + dt * sigma_pmy_yp)
 # Coefficients updating Hy
 Chyh_xn = (2 * mu - dt * sigma_pmx_xn) / (2 * mu + dt * sigma_pmx_xn)
 Chyez_xn = (2 * dt / dx) / (2 * mu + dt * sigma_pmx_xn)
-# Coefficients updating Ezx
-Cezxe_xn = (2 * epsilon - dt * sigma_pex_xn) / (2 * epsilon + dt * sigma_pex_xn)
-Cezxhy_xn = (2 * dt / dx) / (2 * epsilon + dt * sigma_pex_xn)
-# Coefficients updating Ezy
-Cezye_xn = 1
-Cezyhx_xn = -dt / (dy * epsilon)
-# Coefficients updating Hy
 Chyh_xp = (2 * mu - dt * sigma_pmx_xp) / (2 * mu + dt * sigma_pmx_xp)
 Chyez_xp = (2 * dt / dx) / (2 * mu + dt * sigma_pmx_xp)
 # Coefficients updating Ezx
 Cezxe_xp = (2 * epsilon - dt * sigma_pex_xp) / (2 * epsilon + dt * sigma_pex_xp)
 Cezxhy_xp = (2 * dt / dx) / (2 * epsilon + dt * sigma_pex_xp)
-# Coefficients updating Ezy
-Cezye_xp = 1
-Cezyhx_xp = -dt / (dy * epsilon)
-# Coefficients updating Hx
-Chxh_yn = (2 * mu - dt * sigma_pmy_yn) / (2 * mu + dt * sigma_pmy_yn)
-Chxez_yn = -(2 * dt / dy) / (2 * mu + dt * sigma_pmy_yn)
-# Coefficients updating Ezx
 Cezxe_yn = 1
 Cezxhy_yn = dt / (dx * epsilon)
-# Coefficients updating Ezy
-Cezye_yn = (2 * epsilon - dt * sigma_pey_yn) / (2 * epsilon + dt * sigma_pey_yn)
-Cezyhx_yn = -(2 * dt / dy) / (2 * epsilon + dt * sigma_pey_yn)
-# Coefficients updating Hx
-Chxh_yp = (2 * mu - dt * sigma_pmy_yp) / (2 * mu + dt * sigma_pmy_yp)
-Chxez_yp = -(2 * dt / dy) / (2 * mu + dt * sigma_pmy_yp)
-# Coefficients updating Ezx
 Cezxe_yp = 1
 Cezxhy_yp = dt / (dx * epsilon)
+Cezxe_xn = (2 * epsilon - dt * sigma_pex_xn) / (2 * epsilon + dt * sigma_pex_xn)
+Cezxhy_xn = (2 * dt / dx) / (2 * epsilon + dt * sigma_pex_xn)
 # Coefficients updating Ezy
+Cezye_xn = 1
+Cezyhx_xn = -dt / (dy * epsilon)
+Cezye_xp = 1
+Cezyhx_xp = -dt / (dy * epsilon)
 Cezye_yp = (2 * epsilon - dt * sigma_pey_yp) / (2 * epsilon + dt * sigma_pey_yp)
 Cezyhx_yp = -(2 * dt / dy) / (2 * epsilon + dt * sigma_pey_yp)
+Cezye_yn = (2 * epsilon - dt * sigma_pey_yn) / (2 * epsilon + dt * sigma_pey_yn)
+Cezyhx_yn = -(2 * dt / dy) / (2 * epsilon + dt * sigma_pey_yn)
+
 
 # Create "figures" directory if it doesn't exist
 output_dir = "figures"
@@ -193,17 +177,18 @@ os.makedirs(output_dir, exist_ok=True)
 
 
 def plot_solution(cmap="viridis", output_path="figures/plot.png"):
-    fig, axs = plt.subplots(1, 3)
+    fig, axs = plt.subplots(1, 3, figsize=(12, 4))  # Adjust figure size for better spacing
     datasets = [Ez, Hx, Hy]
+    vmin_values = [-0.5, -0.001, -0.001]  # Individual vmin for Ez, Hx, and Hy
+    vmax_values = [0.5, 0.001, 0.001]     # Individual vmax for Ez, Hx, and Hy
 
-    matricies = []
-    for ax, data in zip(axs.flat, datasets):
-        matricies.append(ax.imshow(data))#, vmin=-amplitude, vmax=amplitude))
+    for ax, data, vmin, vmax in zip(axs.flat, datasets, vmin_values, vmax_values):
+        im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
+        fig.colorbar(im, ax=ax, orientation='horizontal', fraction=0.05, pad=0.1)  # Add colorbar to each subplot
 
-    fig.colorbar(matricies[0], ax=axs, orientation='horizontal', fraction=.1)
+    plt.tight_layout()  # Adjust layout to prevent overlap
     plt.savefig(output_path, dpi=300)
     plt.close()
-
 
 timestep = 0
 while t < t_final:
