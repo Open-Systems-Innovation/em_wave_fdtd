@@ -9,6 +9,55 @@ import matplotlib.pyplot as plt
 import os
 import pdb
 
+
+def vis(arrays):
+    """
+    Visualizes one or more NumPy arrays using Matplotlib.
+
+    Parameters:
+    arrays (numpy.ndarray or list of numpy.ndarray): 
+        A single NumPy array or a list of arrays to visualize.
+    """
+    # Ensure arrays is a list of arrays
+    if isinstance(arrays, np.ndarray):
+        arrays = [arrays]
+    elif not isinstance(arrays, list) or not all(isinstance(a, np.ndarray) for a in arrays):
+        raise ValueError("Input must be a NumPy array or a list of NumPy arrays.")
+
+    num_plots = len(arrays)
+    fig, axes = plt.subplots(1, num_plots, figsize=(6 * num_plots, 6))
+
+    # Handle single subplot case
+    if num_plots == 1:
+        axes = [axes]
+
+    for i, (array, ax) in enumerate(zip(arrays, axes)):
+        ndim = array.ndim
+
+        if ndim == 1:  # 1D array
+            ax.plot(np.transpose(array), marker='o', linestyle='-', color='b')
+            ax.set_title(f"1D Array {i + 1}")
+            ax.set_xlabel("Index")
+            ax.set_ylabel("Value")
+            ax.grid(True)
+        elif ndim == 2:  # 2D array
+            im = ax.imshow(np.transpose(array), cmap='viridis', aspect='auto')
+            fig.colorbar(im, ax=ax, label="Value")
+            ax.set_title(f"2D Array {i + 1}")
+            # Add cell borders
+            ax.set_xticks(np.arange(-0.5, array.shape[1], 1), minor=True)
+            ax.set_yticks(np.arange(-0.5, array.shape[0], 1), minor=True)
+            ax.grid(which="minor", color="black", linestyle="-", linewidth=0.5)
+            ax.tick_params(which="minor", size=0)  # Hide minor ticks
+        else:  # Higher dimensions
+            ax.set_title(f"Unsupported Array {i + 1}")
+            ax.text(0.5, 0.5, "Unsupported Array", 
+                    ha='center', va='center', transform=ax.transAxes)
+
+    plt.tight_layout()
+    plt.show()
+
+    
 # physics parameters
 c = 3e8                     # [m/s] speed of light
 mu = np.pi*4e-7             # [H/m] vacuum permeability
@@ -18,18 +67,19 @@ epsilon = 1 / (mu * c**2)   # [F/m]
 frequency = 5e9  # [Hz]
 amplitude = 1.4*1450            # [?]
 wavelength = c / frequency  # [m]
-ps1 = 4  # point source location
+psx = 56  # point source location
+psy = 56  # point source location
 
 # interior grid parameters (not PML)
-domain_nx = 3                     # number of points in x direction
-domain_ny = 3                     # number of points in the y direction
+domain_nx = 100                     # number of points in x direction
+domain_ny = 100                     # number of points in the y direction
 size_x = 0.5                 # total domin size in x direction [m]
 size_y = 0.5                 # total domin size in x direction [m]
 dx = size_x / domain_nx             # grid spacing in x direction [m]
 dy = size_y / domain_ny             # grid spacing in y direction [m]
 
 # PML boundary parameters
-pml_thickness = 3
+pml_thickness = 10
 R_0 = 1e-8  # PML refelction Coefficient
 pml_order = 2
 
@@ -118,8 +168,9 @@ sigma_pmy_yp = np.zeros((nxm1, pml_thickness))
 sigma_max = -(pml_order + 1) * epsilon * c * np.log(R_0) / (2 * dx * pml_thickness)
 # calculated rho and sigma values (distance from the interior boundary
 # of the PML
-rho_e = (np.arange(pml_thickness, 0, -1) - 0.75) / pml_thickness
-rho_m = (np.arange(pml_thickness, 0, -1) - 0.25) / pml_thickness
+# AMAZON REVIEW SAYS THAT RHO_E IS 0.75
+rho_e = (np.arange(pml_thickness, 0, -1) - 0.25) / pml_thickness
+rho_m = (np.arange(pml_thickness, 0, -1) - 0.75) / pml_thickness
 for i in range(pml_thickness):
     # for xn
     sigma_pex_xn[i, :] = sigma_max * rho_e[i] ** pml_order
@@ -128,8 +179,8 @@ for i in range(pml_thickness):
     sigma_pey_yn[:, i] = sigma_max * rho_e[i] ** pml_order
     sigma_pmy_yn[:, i] = (mu / epsilon) * sigma_max * rho_m[i] ** pml_order
 
-rho_e = (np.arange(1, pml_thickness+1) - 0.75) / pml_thickness
-rho_m = (np.arange(1, pml_thickness+1) - 0.25) / pml_thickness
+rho_e = (np.arange(1, pml_thickness+1) - 0.25) / pml_thickness
+rho_m = (np.arange(1, pml_thickness+1) - 0.75) / pml_thickness
 for i in range(pml_thickness):
     # calcualte the actual values of sigma_p
     # for xp
@@ -138,8 +189,7 @@ for i in range(pml_thickness):
     # for yp
     sigma_pey_yp[:, i] = sigma_max * rho_e[i] ** pml_order
     sigma_pmy_yp[:, i] = (mu / epsilon) * sigma_max * rho_m[i] ** pml_order
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-breakpoint()
+
 # Update coefficients for PML layer
 # Coefficients updating Hx
 Chxh_yn = (2 * mu - dt * sigma_pmy_yn) / (2 * mu + dt * sigma_pmy_yn)
@@ -179,8 +229,8 @@ os.makedirs(output_dir, exist_ok=True)
 def plot_solution(cmap="viridis", output_path="figures/plot.png"):
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))  # Adjust figure size for better spacing
     datasets = [Ez, Hx, Hy]
-    vmin_values = [-0.5, -0.001, -0.001]  # Individual vmin for Ez, Hx, and Hy
-    vmax_values = [0.5, 0.001, 0.001]     # Individual vmax for Ez, Hx, and Hy
+    vmin_values = [-0.1, -0.001, -0.001]  # Individual vmin for Ez, Hx, and Hy
+    vmax_values = [0.1, 0.001, 0.001]     # Individual vmax for Ez, Hx, and Hy
 
     for ax, data, vmin, vmax in zip(axs.flat, datasets, vmin_values, vmax_values):
         im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
@@ -190,11 +240,13 @@ def plot_solution(cmap="viridis", output_path="figures/plot.png"):
     plt.savefig(output_path, dpi=300)
     plt.close()
 
+
 timestep = 0
 while t < t_final:
     t += dt
     ps = pml_thickness
     pe = -pml_thickness
+    
     # update Hx
     Hx[:, ps:pe] = Chxh[:, ps:pe] * Hx[:, ps:pe] + \
         Chxez[:, ps:pe] * (Ez[:, ps+1:pe] - Ez[:, ps:pe-1])
@@ -202,6 +254,7 @@ while t < t_final:
     # update Hy
     Hy[ps:pe, :] = Chyh[ps:pe, :] * Hy[ps:pe, :] + \
         Chyez[ps:pe, :] * (Ez[ps+1:pe, :] - Ez[ps:pe-1, :])
+
     # update H in PML layers
     # for xn
     Hy[:ps, 1:-1] = \
@@ -209,7 +262,7 @@ while t < t_final:
         Chyez_xn * (Ez[1:ps+1, 1:-1] - Ez[:ps, 1:-1])
     # for xp
     Hy[pe:, 1:-1] = \
-        Chyh_xp * Hy[pe:nx, 1:-1] + \
+        Chyh_xp * Hy[pe:, 1:-1] + \
         Chyez_xp * (Ez[pe:, 1:-1] - Ez[pe-1:-1, 1:-1])
     # for yn
     Hx[1:-1, :ps] = \
@@ -219,6 +272,7 @@ while t < t_final:
     Hx[1:-1, pe:] = \
         Chxh_yp * Hx[1:-1, pe:] + \
         Chxez_yp * (Ez[1:-1, pe:] - Ez[1:-1, pe-1:-1])
+
     # update_Ez()
     Ez[ps+1:pe-1, ps+1:pe-1] = (
         Ceze[ps+1:pe-1, ps+1:pe-1] * Ez[ps+1:pe-1, ps+1:pe-1] +
@@ -228,37 +282,39 @@ while t < t_final:
         (Hx[ps+1:pe-1, ps+1:pe] - Hx[ps+1:pe-1, ps:pe-1])
     )
 
-    # update_impressed_J()
-    Cezj = -(2*dt) / (2 * eps_rz[ps1, ps1] * epsilon + dt * sigma_ez[ps1, ps1])
-    Ez[ps1, ps1] = Ez[ps1, ps1] + Cezj * np.sin(2 * np.pi * frequency * t)
+    # update impressed current J_z
+    Cezj = -(2*dt) / (2 * eps_rz[psx, psy] * epsilon + dt * sigma_ez[psx, psy])
+    Ez[psx, psy] = Ez[psx, psy] + Cezj * np.sin(2 * np.pi * frequency * t)
     # update_Ez_PML layers
     # For xn PML region
-    Ezx_xn = Cezxe_xn * Ezx_xn + Cezxhy_xn * (Hy[1:ps+1, 1:-1] - Hy[0:ps, 1:-1])
+    Ezx_xn = Cezxe_xn * Ezx_xn + Cezxhy_xn * (Hy[1:ps+1, 1:-1] - Hy[:ps, 1:-1])  # GOOD
     Ezy_xn = Cezye_xn * Ezy_xn + Cezyhx_xn * (Hx[1:ps+1, ps+1:pe] - Hx[1:ps+1, ps:pe-1])
     # For xp PML region
-    Ezx_xp = Cezxe_xp * Ezx_xp + Cezxhy_xp * (Hy[pe:, 1:-1] - Hy[pe-1:-1, 1:-1])
-    Ezy_xp = Cezye_xp * Ezy_xp + Cezyhx_xp * (Hx[pe:, ps+1:pe] - Hx[pe:, ps:pe-1])
+    Ezx_xp = Cezxe_xp * Ezx_xp + Cezxhy_xp * (Hy[pe:, 1:-1] - Hy[pe-1:-1, 1:-1]) # 
+    Ezy_xp = Cezye_xp * Ezy_xp + Cezyhx_xp * (Hx[pe-1:-1, ps+1:pe] - Hx[pe-1:-1, ps:pe-1])
     # For yn PML region
-    Ezx_yn = Cezxe_yn * Ezx_yn + Cezxhy_yn * (Hy[ps+1:pe, 1:ps+1] - Hy[ps:pe-1, 1:ps+1])
-    Ezy_yn = Cezye_yn * Ezy_yn + Cezyhx_yn * (Hx[1:-1, 1:ps+1] - Hx[1:-1, :ps])
+    Ezx_yn = Cezxe_yn * Ezx_yn + Cezxhy_yn * (Hy[ps+1:pe, 1:ps+1] - Hy[ps:pe-1, 1:ps+1])  
+    Ezy_yn = Cezye_yn * Ezy_yn + Cezyhx_yn * (Hx[1:-1, 1:ps+1] - Hx[1:-1, :ps])  # GOOD
     # For yp PML region
-    Ezx_yp = Cezxe_yp * Ezx_yp + Cezxhy_yp * (Hy[ps+1:pe, pe:] - Hy[ps:pe-1, pe:])
-    Ezy_yp = Cezye_yp * Ezy_yp + Cezyhx_yp * (Hx[1:-1, pe:] - Hx[1:-1, pe-1:-1])
+    Ezx_yp = Cezxe_yp * Ezx_yp + Cezxhy_yp * (Hy[ps+1:pe, pe-1:-1] - Hy[ps:pe-1, pe-1:-1])
+    #Ezx_yp = Cezxe_yp * Ezx_yp + Cezxhy_yp * (Hy[ps+1:pe, pe:] - Hy[ps:pe-1, pe:])
+    Ezy_yp = Cezye_yp * Ezy_yp + Cezyhx_yp * (Hx[1:-1, pe:] - Hx[1:-1, pe-1:-1]) # 
     # Update the Ez field at the corresponding regions
-    Ez[1:ps+1, 1:ps+1] = Ezx_xn[:, 1:ps+1] + Ezy_yn[1:ps+1, :]  # lower L corner
-    Ez[1:ps+1, pe:] = Ezx_xn[:, pe:] + Ezy_yp[:ps, :]  # upper L corner
-    Ez[pe:, pe:] = Ezx_xp[:, pe:] + Ezy_yp[pe:, :]  # upper R corner
-    Ez[pe:, :ps] = Ezx_xp[:, :ps] + Ezy_yn[pe:, :]    # lower R corner
-    Ez[ps+1:pe-1, :ps] = Ezx_yn + Ezy_yn[ps:pe, :]  # bottom
-    Ez[ps+1:pe-1, pe:] = Ezx_yp + Ezy_yp[ps:pe, :]   # top
-    Ez[:ps, ps+1:pe-1] = Ezx_xn[:, ps:pe] + Ezy_xn  # left
-    Ez[pe:, ps+1:pe-1] = Ezx_xp[:, ps:pe] + Ezy_xp   # right
-    
+    Ez[1:ps+1, 1:ps+1] = Ezx_xn[:, :ps] + Ezy_yn[:ps, :]  # lower L corner GOOD
+    Ez[1:ps+1, pe-1:-1] = Ezx_xn[:, pe:] + Ezy_yp[:ps, :]  # upper L corner GOOD
+    Ez[pe-1:-1, pe-1:-1] = Ezx_xp[:, pe:] + Ezy_yp[pe:, :]  # upper R corner GOOD
+    Ez[pe-1:-1, 1:ps+1] = Ezx_xp[:, :ps] + Ezy_yn[pe:, :]  # lower R corner GOOD
+    Ez[ps+1:pe-1, 1:ps+1] = Ezx_yn + Ezy_yn[ps:pe, :]  # bottom GOOD
+    Ez[ps+1:pe-1, pe-1:-1] = Ezx_yp + Ezy_yp[ps:pe, :]   # top GOOD
+    Ez[1:ps+1, ps+1:pe-1] = Ezx_xn[:, ps:pe] + Ezy_xn  # left
+    Ez[pe-1:-1, ps+1:pe-1] = Ezx_xp[:, ps:pe] + Ezy_xp   # right CHECK THIS
+
     # plot solution
-    if 0 == 0:
+    if timestep % 10 == 0:
         output_path = f"{output_dir}/timestep_{timestep:04d}.png"
         plot_solution(output_path=output_path)
 
     # increment timestep
     timestep += 1
-    
+
+
