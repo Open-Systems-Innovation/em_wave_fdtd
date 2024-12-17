@@ -19,19 +19,19 @@ epsilon = 1 / (mu * c**2)   # [F/m]
 frequency = 5e9  # [Hz]
 amplitude = 1.4*1450            # [?]
 wavelength = c / frequency  # [m]
-psx = 7  # point source location
-psy = 56  # point source location
+psx = 31  # point source location
+psy = 180  # point source location
 
 # interior grid parameters (not PML)
-domain_nx = 100                     # number of points in x direction
-domain_ny = 100                     # number of points in the y direction
+domain_nx = 300                     # number of points in x direction
+domain_ny = 300                     # number of points in the y direction
 size_x = 0.5                 # total domin size in x direction [m]
 size_y = 0.5                 # total domin size in x direction [m]
 dx = size_x / domain_nx             # grid spacing in x direction [m]
 dy = size_y / domain_ny             # grid spacing in y direction [m]
 
 # PML boundary parameters
-pml_thickness = 6
+pml_thickness = 30
 R_0 = 1e-8  # PML refelction Coefficient
 pml_order = 2
 
@@ -44,14 +44,14 @@ nxp1 = nx + 1
 nyp1 = ny + 1
 
 # imbedded rectangle parameters
-length = 30
-width = 40
+length = 60
+width = 100
 material_epsilon = 10
 
 # time stepping parameters
 courant_factor = 0.9
 dt = courant_factor * 1/(c*np.sqrt(1/(dx**2) + 1/(dy**2)))   # based on CFL
-t_final = dt*350             # final time
+t_final = dt*1500             # final time
 t = 0                        # starting time
 
 # log information to the consol
@@ -193,8 +193,8 @@ os.makedirs(output_dir, exist_ok=True)
 def plot_solution(cmap="viridis", output_path="figures/plot.png"):
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))  # Adjust figure size for better spacing
     datasets = [Ez, Hx, Hy]
-    vmin_values = [-0.1, -0.001, -0.001]  # Individual vmin for Ez, Hx, and Hy
-    vmax_values = [0.1, 0.001, 0.001]     # Individual vmax for Ez, Hx, and Hy
+    vmin_values = [-0.02, -0.00005, -0.00005]  # Individual vmin for Ez, Hx, and Hy
+    vmax_values = [0.02, 0.00005, 0.00005]     # Individual vmax for Ez, Hx, and Hy
 
     for ax, data, vmin, vmax in zip(axs.flat, datasets, vmin_values, vmax_values):
         im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
@@ -250,6 +250,9 @@ while t < t_final:
     Cezj = -(2*dt) / (2 * eps_rz[psx, psy] * epsilon + dt * sigma_ez[psx, psy])
     Ez[psx, psy] = Ez[psx, psy] + Cezj * np.sin(2 * np.pi * frequency * t)
 
+    Cezj = -(2*dt) / (2 * eps_rz[180, 31] * epsilon + dt * sigma_ez[180, 31])
+    Ez[180, 31] = Ez[180, 31] + Cezj * np.sin(2 * np.pi * frequency * t)
+
     # update_Ez_PML layers
     # For xn PML region
     Ezx_xn = Cezxe_xn * Ezx_xn + Cezxhy_xn * (Hy[1:ps+1, 1:-1] - Hy[:ps, 1:-1])
@@ -274,7 +277,7 @@ while t < t_final:
     Ez[pe-1:-1, ps+1:pe-1] = Ezx_xp[:, ps:pe] + Ezy_xp   # right
 
     # plot solution
-    if timestep % 10 == 0:
+    if timestep % 1 == 0:
         output_path = f"{output_dir}/timestep_{timestep:04d}.png"
         plot_solution(output_path=output_path)
 
