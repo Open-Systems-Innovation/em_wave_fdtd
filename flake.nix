@@ -36,7 +36,8 @@
                 python-pkgs.matplotlib
               #  python-pkgs.meshio
                 python-pkgs.numpy
-              #  python-pkgs.firedrake
+                python-pkgs.pyvista
+                python-pkgs.imageio
               ]))
             ];
 

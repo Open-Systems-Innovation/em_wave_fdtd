@@ -2,3 +2,5 @@ figures/
 .direnv/
 .envrc
 debugging_figures/
+__pycache__/
+plotting_matrices/
