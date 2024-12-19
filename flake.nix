@@ -32,12 +32,11 @@
                 python-pkgs.pep8
                 python-pkgs.flake8
               #  # packages for code
-              #  python-pkgs.gmsh
+                python-pkgs.imageio
                 python-pkgs.matplotlib
-              #  python-pkgs.meshio
                 python-pkgs.numpy
                 python-pkgs.pyvista
-                python-pkgs.imageio
+                python-pkgs.torch
               ]))
             ];
 

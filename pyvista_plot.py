@@ -21,6 +21,14 @@ x = np.linspace(0, 1, nx)  # Adjust domain size if necessary
 y = np.linspace(0, 1, ny)
 x, y = np.meshgrid(x, y)
 
+# Define sensor locations
+sensors = [
+    (31, 31), (31, 81), (31, 141), (31, 211), (31, 251), (31, 319), 
+    (71, 329),  (151, 329), (241, 329), (281, 329), (322, 329),
+    (329, 291), (329, 231), (329, 121), (329, 95),  (329, 41),
+    (265, 31),  (201, 31),  (101, 31),  (64, 31)
+]
+
 # Create a PyVista structured grid
 grid = pv.StructuredGrid()
 grid.points = np.c_[x.ravel(), y.ravel(), np.zeros_like(x.ravel())]
@@ -41,9 +49,19 @@ for file in npy_files:
         warped_grid,
         cmap="viridis",
         scalar_bar_args={"title": "Ez Field"},
-        #clim=[np.min(sample_data), np.max(sample_data)],  # Keep colorbar consistent
-        clim=[-0.01, 0.01]
+        clim=[-0.01, 0.01]  # Keep colorbar consistent
     )
+    
+    # Plot sensors as dots on the grid
+    sensor_positions = [(x[s[0], s[1]], y[s[0], s[1]], 0) for s in sensors]
+    sensor_points = pv.PolyData(sensor_positions)
+    plotter.add_points(
+        sensor_points,
+        color="red",
+        point_size=10,
+        render_points_as_spheres=True
+    )
+
     plotter.add_axes()
     plotter.set_background("white")
 

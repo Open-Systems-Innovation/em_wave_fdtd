@@ -4,6 +4,49 @@ import argparse
 import os
 
 
+def create_training_data_structures(eps, mu, width, length, n_timesteps, n_sensors):
+    # pytorch tensor of input values
+    input_data = np.array([eps, mu, width, length])
+    # pytorch tensor of output values
+    output_data = np.zeros((n_sensors, n_timesteps+1))
+    return input_data, output_data
+
+
+def update_sensor_data(sensors, output_data, Ez, timestep):
+    # Create a list of sensor values by extracting the values from Ez
+    sensor_values = [Ez[x, y] for x, y in sensors]
+
+    # Update output_data at the specified timestep for each sensor
+    output_data[:, timestep] = sensor_values
+
+
+def save_training_data(input_data, output_data):
+    """
+    Saves Ez values at specific sensor locations to a numpy file for
+    all timesteps
+    """
+    # Extract values from the input tensor
+    eps, mu, width, length = input_data.tolist()
+
+    # Format float parameters (eps, mu) to preserve 3 decimal places
+    def format_param(param):
+        return int(round(param * 1000))  # Scale floats to 3 decimal places
+
+    eps_str = format_param(eps)
+    mu_str = format_param(mu)
+    width_str = int(width)
+    length_str = int(length)
+
+    # Create the filename using the parameters
+    directory = './training_data/'
+    os.makedirs(directory, exist_ok=True)
+    filename = f"{directory}eps{eps_str}_mu{mu_str}_w{width_str}_l{length_str}.npz"
+
+    # Save input and output arrays to the file
+    np.savez(filename, input_data=input_data, output_data=output_data)
+    return
+
+
 def forward_problem(eps_r, mu_r, length, width, plot=False):
     """
     2D FDTD electromagnetic wave simulation
@@ -20,11 +63,20 @@ def forward_problem(eps_r, mu_r, length, width, plot=False):
     frequency = 5e9  # [Hz]
     wavelength = c / frequency  # [m]
     sources = [
-        (31, 180),   # 1st source
-        (180, 31),   # 2nd source
-        (180, 329),  # 3rd source
-        (329, 180)   # 4th source
+        (31, 190),   # 1st source
+        (200, 31),   # 2nd source
+        (163, 329),  # 3rd source
+        (329, 140)   # 4th source
     ]
+
+    # sensor positions
+    sensors = [
+        (31, 31), (31, 81), (31, 141), (31, 211), (31, 251), (31, 319),
+        (71, 329),  (151, 329), (241, 329), (281, 329), (322, 329),
+        (329, 291), (329, 231), (329, 121), (329, 95),  (329, 41),
+        (265, 31),  (201, 31),  (101, 31),  (64, 31)
+    ]
+    n_sensors = len(sensors)
 
     # interior grid parameters (not PML)
     domain_nx = 300                     # number of points in x direction
@@ -56,7 +108,8 @@ def forward_problem(eps_r, mu_r, length, width, plot=False):
     # time stepping parameters
     courant_factor = 0.9
     dt = courant_factor * 1/(c*np.sqrt(1/(dx**2) + 1/(dy**2)))   # based on CFL
-    t_final = dt*350             # final time
+    n_timesteps = 350
+    t_final = dt*n_timesteps     # final time
     t = 0                        # starting time
 
     # log information to the consol
@@ -186,6 +239,9 @@ def forward_problem(eps_r, mu_r, length, width, plot=False):
     Cezye_yn = (2 * epsilon - dt * sigma_pey_yn) / (2 * epsilon + dt * sigma_pey_yn)
     Cezyhx_yn = -(2 * dt / dy) / (2 * epsilon + dt * sigma_pey_yn)
 
+    # Initialize files for storing simulation data
+    input_data, output_data = create_training_data_structures(eps_r, mu_r, width, length, n_timesteps, n_sensors)
+
     timestep = 0
     while t < t_final:
         t += dt
@@ -245,7 +301,7 @@ def forward_problem(eps_r, mu_r, length, width, plot=False):
         # For yp PML region
         Ezx_yp = Cezxe_yp * Ezx_yp + Cezxhy_yp * (Hy[ps+1:pe, pe-1:-1] - Hy[ps:pe-1, pe-1:-1])
         Ezy_yp = Cezye_yp * Ezy_yp + Cezyhx_yp * (Hx[1:-1, pe:] - Hx[1:-1, pe-1:-1])
-        # Update the Ez field at the corresponding regions
+        # Update the Ez field at the corresponding PML regions
         Ez[1:ps+1, 1:ps+1] = Ezx_xn[:, :ps] + Ezy_yn[:ps, :]  # lower L corner
         Ez[1:ps+1, pe-1:-1] = Ezx_xn[:, pe:] + Ezy_yp[:ps, :]  # upper L corner
         Ez[pe-1:-1, pe-1:-1] = Ezx_xp[:, pe:] + Ezy_yp[pe:, :]  # upper R corner
@@ -255,7 +311,7 @@ def forward_problem(eps_r, mu_r, length, width, plot=False):
         Ez[1:ps+1, ps+1:pe-1] = Ezx_xn[:, ps:pe] + Ezy_xn  # left
         Ez[pe-1:-1, ps+1:pe-1] = Ezx_xp[:, ps:pe] + Ezy_xp   # right
 
-        # FINISH THIS
+        # Plot simulation
         if plot:
             # Ensure the output directory exists
             output_dir = "plotting_matrices/"
@@ -265,8 +321,15 @@ def forward_problem(eps_r, mu_r, length, width, plot=False):
             np.save(os.path.join(output_dir, f"Hx_timestep_{timestep_str}.npy"), Hx)
             np.save(os.path.join(output_dir, f"Hy_timestep_{timestep_str}.npy"), Hy)
 
+        # ADD CODE HERE
+        update_sensor_data(sensors, output_data, Ez, timestep)
+
         # increment timestep
         timestep += 1
+
+    # Save data for training gaussian process
+    save_training_data(input_data, output_data)
+    return
 
 
 if __name__ == "__main__":
